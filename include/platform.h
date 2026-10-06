@@ -19,6 +19,10 @@ void Platform_BeginFrame(void);
 int Platform_BeginScene(void);
 void Platform_EndScene(void);
 void Platform_EndFrame(void);
+// Saves screenshot-NNN.bmp into the base directory every `seconds` seconds, for
+// runs nobody is watching (a Raspberry Pi tested over SSH) where no one can
+// press F12. 0 disables it. Internal builds only; a no-op elsewhere.
+void Platform_SetScreenshotInterval(int seconds);
 void Platform_PresentVRAMDisplay(void);
 // Shows a centred message on a black screen right now, for long loads that block
 // the game thread. The next normal frame replaces it. No-op on Vita.

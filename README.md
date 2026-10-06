@@ -332,7 +332,7 @@ AppImage packaging requires an x86_64 Linux host, `curl`, `readelf` (binutils), 
 
 The script also downloads pinned runtime/libfuse/squashfuse sources and creates an `AppImage-runtime-source.tar.gz` archive with licences and rebuilding instructions. It is included inside the AppImage and uploaded separately by CI; publish it and its checksum alongside the AppImage. Source and binary distributions include [third-party notices](THIRD_PARTY_NOTICES.md) and full licence texts in `licenses/`.
 
-For the tarball alone, use `./package.sh linux`. Linux CI builds and uploads both formats, runtime source, and their checksums, and checks the AppImage's version command without FUSE. The Raspberry Pi build is a tarball only: `ARCH=armhf BUILD_DIR=build-linux-gcc-armhf-cross-release ./package.sh linux`, which CI's `linux-armhf` job also produces.
+For the tarball alone, use `./package.sh linux`. Linux CI builds and uploads both formats, runtime source, and their checksums, and checks the AppImage's version command without FUSE. The Raspberry Pi build is a tarball only: `ARCH=armhf BUILD_DIR=build-linux-gcc-armhf-cross-release ./package.sh linux`, which CI's `linux-armhf` job also produces, and `tools/build-armhf-in-container.sh` runs those steps in a Debian container on any machine with Docker or Podman.
 
 ### Tests
 

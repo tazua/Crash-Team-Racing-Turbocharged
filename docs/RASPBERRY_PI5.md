@@ -47,6 +47,11 @@ warnings across 56 files, all from the PS1 memory layout described in
   `borderless` setting for one run without writing it back, so a launcher can
   pass one on every start. `--help` lists the options. Fullscreen comes from
   `borderless=1` in `config.ini` as before.
+- **Headless testing.** `--screenshot-interval N` saves `screenshot-NNN.bmp`
+  every N seconds and `--perf` records per-frame timings, so a Pi reached only
+  over SSH can still show what it rendered and how fast. The title screen
+  starts a demo race on its own, so no input is needed.
+  `docs/PI5_REMOTE_TEST.md` is the step-by-step plan.
 - **Video driver order.** The 32-bit Linux build used to force SDL to
   `x11,wayland`, a workaround for 32-bit x86 GPU drivers under Wayland. That
   list excluded KMSDRM, which would have left a RetroPie console with no
@@ -57,6 +62,9 @@ warnings across 56 files, all from the PS1 memory layout described in
   cross-builds on `debian:bookworm`, runs the headless tests under
   `qemu-user-static`, and uploads the tarball. That job has not run yet; the
   same steps were verified locally with a console-only SDL configuration.
+  `tools/build-armhf-in-container.sh` runs the identical steps in a Debian
+  container on any desktop with Docker or Podman and leaves the package in
+  `dist/`.
 - **RetroPie.** `packaging/retropie/ctr-turbocharged.sh` is a RetroPie-Setup
   port module; `packaging/retropie/README.md` walks through installing it.
 

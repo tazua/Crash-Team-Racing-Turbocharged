@@ -245,6 +245,12 @@ static void NativeArg_PrintUsage(const char *program)
 	       "  --windowed     start windowed for this run\n"
 	       "  --version, -v  print the version and exit\n"
 	       "  --help, -h     print this help and exit\n"
+#if defined(CTR_INTERNAL)
+	       "  --perf         record frame times to debug/perf/perf-latest/\n"
+	       "  --perf-dir DIR record frame times to DIR instead\n"
+	       "  --screenshot-interval N\n"
+	       "                 save screenshot-NNN.bmp every N seconds (headless testing)\n"
+#endif
 	       "\n"
 	       "--fullscreen and --windowed override the saved borderless setting without\n"
 	       "changing it, so a launcher can pass one on every start. F11 still toggles.\n"
@@ -444,6 +450,9 @@ void *real_main(void *_argv)
 int main(int argc, char *argv[])
 {
 #endif
+#if defined(CTR_INTERNAL)
+	int screenshotIntervalSeconds = 0;
+#endif
 	for (int argIndex = 1; argIndex < argc; argIndex++)
 	{
 		if (NativeArg_IsVersion(argv[argIndex]))
@@ -464,6 +473,12 @@ int main(int argc, char *argv[])
 		{
 			gNativeWindowModeOverride = 0;
 		}
+#if defined(CTR_INTERNAL)
+		else if ((strcmp(argv[argIndex], "--screenshot-interval") == 0) && (argIndex + 1 < argc))
+		{
+			screenshotIntervalSeconds = atoi(argv[++argIndex]);
+		}
+#endif
 	}
 
 #if defined(__linux__) && defined(__i386__) && !defined(__EMSCRIPTEN__)
@@ -568,6 +583,7 @@ int main(int argc, char *argv[])
 		Platform_Shutdown();
 		return NativeConsole_Return(1);
 	}
+	Platform_SetScreenshotInterval(screenshotIntervalSeconds);
 #endif
 
 #if NATIVE_DRAW3D_SUPPORTED

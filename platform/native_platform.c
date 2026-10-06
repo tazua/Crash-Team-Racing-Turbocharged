@@ -263,18 +263,77 @@ internal void Platform_UpdateHostAltKeyState(const s32 key, const s8 down)
 }
 
 #if defined(CTR_INTERNAL)
-internal void Platform_TakeScreenshot(void)
+// Timed screenshots for runs nobody is watching, such as a Raspberry Pi tested
+// over SSH: --screenshot-interval N saves screenshot-NNN.bmp every N seconds.
+global_variable u32 s_screenshotIntervalMs;
+global_variable u64 s_screenshotNextMs;
+global_variable u32 s_screenshotIndex;
+
+internal void Platform_SaveScreenshot(const char *path)
 {
-	u8 *pixels = (u8 *)malloc(g_windowWidth * g_windowHeight * 4);
+	const size_t rowBytes = (size_t)g_windowWidth * 4;
+	u8 *pixels = (u8 *)malloc(rowBytes * (size_t)g_windowHeight);
 
+	if (pixels == NULL)
+	{
+		return;
+	}
+
+#ifndef __vita__
+	// Read the window's back buffer whatever the renderer left bound.
+	GLint previousReadFramebuffer = 0;
+	glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previousReadFramebuffer);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+#endif
 	glReadPixels(0, 0, g_windowWidth, g_windowHeight, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+#ifndef __vita__
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)previousReadFramebuffer);
+#endif
 
-	SDL_Surface *surface = SDL_CreateSurfaceFrom(g_windowWidth, g_windowHeight, SDL_PIXELFORMAT_BGRA8888, pixels, g_windowWidth * 4);
-
-	SDL_SaveBMP(surface, "SCREENSHOT.BMP");
-	SDL_DestroySurface(surface);
+	SDL_Surface *surface = SDL_CreateSurfaceFrom(g_windowWidth, g_windowHeight, SDL_PIXELFORMAT_BGRA8888, pixels, (int)rowBytes);
+	if (surface != NULL)
+	{
+		// GL rows run bottom-up; image viewers expect top-down.
+		SDL_FlipSurface(surface, SDL_FLIP_VERTICAL);
+		if (!SDL_SaveBMP(surface, path))
+		{
+			Platform_LogWarn("[CTR Native] Failed to save %s: %s\n", path, SDL_GetError());
+		}
+		SDL_DestroySurface(surface);
+	}
 
 	free(pixels);
+}
+
+void Platform_SetScreenshotInterval(int seconds)
+{
+	s_screenshotIntervalMs = (seconds > 0) ? ((u32)seconds * 1000u) : 0u;
+	s_screenshotNextMs = SDL_GetTicks() + s_screenshotIntervalMs;
+	s_screenshotIndex = 0;
+}
+
+// Called with the finished frame in the back buffer, just before the swap.
+internal void Platform_UpdateTimedScreenshot(void)
+{
+	char path[64];
+
+	if ((s_screenshotIntervalMs == 0) || (SDL_GetTicks() < s_screenshotNextMs))
+	{
+		return;
+	}
+	s_screenshotNextMs += s_screenshotIntervalMs;
+	snprintf(path, sizeof(path), "screenshot-%03u.bmp", s_screenshotIndex++);
+	Platform_SaveScreenshot(path);
+	Platform_Log("[CTR Native] Saved %s\n", path);
+}
+#else
+void Platform_SetScreenshotInterval(int seconds)
+{
+	(void)seconds;
+}
+
+internal void Platform_UpdateTimedScreenshot(void)
+{
 }
 #endif
 
@@ -328,7 +387,7 @@ internal void Platform_HandleKey(int key, char down)
 			break;
 		case SDL_SCANCODE_F12:
 			Platform_LogWarn("[CTR Native] Saving screenshot...\n");
-			Platform_TakeScreenshot();
+			Platform_SaveScreenshot("SCREENSHOT.BMP");
 			break;
 		case SDL_SCANCODE_F3:
 			g_cfg_bilinearFiltering ^= 1;
@@ -569,6 +628,7 @@ void Platform_EndScene(void)
 			NativeRenderer_PresentVRAMDisplay();
 		}
 		NativeRenderer_EndGpuFrame();
+		Platform_UpdateTimedScreenshot();
 		NativeRenderer_SwapWindow();
 		s_pinnedVramDisplayFrames--;
 		if (s_pinnedVramDisplayFrames <= 0)
@@ -589,6 +649,7 @@ void Platform_EndScene(void)
 	NativeRenderer_DrawDebugOverlayFrame();
 #endif
 	NativeRenderer_EndGpuFrame();
+	Platform_UpdateTimedScreenshot();
 	NativeRenderer_SwapWindow();
 	NativePerf_EndScope(NATIVE_PERF_BUCKET_PLATFORM_END_SCENE);
 }
