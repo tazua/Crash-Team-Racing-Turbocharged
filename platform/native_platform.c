@@ -290,7 +290,13 @@ internal void Platform_SaveScreenshot(const char *path)
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)previousReadFramebuffer);
 #endif
 
-	SDL_Surface *surface = SDL_CreateSurfaceFrom(g_windowWidth, g_windowHeight, SDL_PIXELFORMAT_BGRA8888, pixels, (int)rowBytes);
+	// GL_BGRA/GL_UNSIGNED_BYTE lands in memory as B,G,R,A, which SDL calls
+	// BGRX32 (the alias follows byte order, unlike SDL_PIXELFORMAT_BGRA8888,
+	// which names the bits of a little-endian u32 and so reads as A,R,G,B:
+	// the old label swapped red and green and put alpha into blue). X rather
+	// than A so the back buffer's alpha, which the game never clears to 1, is
+	// ignored and SDL_SaveBMP writes a plain 24-bit image.
+	SDL_Surface *surface = SDL_CreateSurfaceFrom(g_windowWidth, g_windowHeight, SDL_PIXELFORMAT_BGRX32, pixels, (int)rowBytes);
 	if (surface != NULL)
 	{
 		// GL rows run bottom-up; image viewers expect top-down.
