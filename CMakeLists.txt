@@ -169,10 +169,16 @@ else()
         $<$<CONFIG:Release>:-g>
     )
 
-    if(NOT EMSCRIPTEN)
+    if(NOT EMSCRIPTEN AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3-6]86|x86|x86_64|AMD64|amd64)$")
         # i386 GCC defaults to x87 maths even with -msse; the native renderer is
         # float-heavy, so keep floats and doubles in SSE registers.
         target_compile_options(ctr_native PRIVATE -msse2 -mfpmath=sse)
+    endif()
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
+        # The decompiled game treats plain char as signed (x86 and MIPS default).
+        # ARM ABIs default to unsigned char, which breaks comparisons such as
+        # `char index > -1`, so pin the x86 behaviour.
+        target_compile_options(ctr_native PRIVATE -fsigned-char)
     endif()
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
