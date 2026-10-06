@@ -46,21 +46,24 @@ repository's *Actions* tab once and enable them. Then: *Actions* > *Build
 native PC builds* > *Run workflow* > branch
 `claude/affectionate-davinci-v46g7q` > *Run workflow*. The armhf job takes
 about two minutes; the whole run, with the Windows and x86 jobs, longer.
-The tarball is uploaded as-is so it keeps its executable bit, which means
-the artifact is named after the file, `ctr-turbocharged-<branch>-<sha>-linux-armhf.tar.gz`,
-not after the upload step. Download it from the run page, or with the GitHub
-CLI, giving the run ID from the run's URL and matching the name by pattern:
+The tarball is uploaded as-is so it keeps its executable bit. That has two
+consequences: the artifact is named after the file,
+`ctr-turbocharged-<branch>-<sha>-linux-armhf.tar.gz`, and `gh run download`
+cannot fetch it, because it expects every artifact to be a zip and this one
+is the raw tarball ("zip: not a valid zip file"). Either click the artifact
+on the run page, which downloads the tarball directly, or let `gh api` save
+the bytes, using the artifact ID from the run's artifact list:
 
 ```fish
 gh workflow run build-native.yml -R tazua/Crash-Team-Racing-Turbocharged --ref claude/affectionate-davinci-v46g7q
 gh run list -R tazua/Crash-Team-Racing-Turbocharged -w build-native.yml -L 3
-gh run download <run-id> -R tazua/Crash-Team-Racing-Turbocharged -p '*linux-armhf.tar.gz' -D pi-build
-find pi-build -name '*.tar.gz'
+gh api repos/tazua/Crash-Team-Racing-Turbocharged/actions/runs/<run-id>/artifacts --jq '.artifacts[] | "\(.id) \(.name)"'
+gh api repos/tazua/Crash-Team-Racing-Turbocharged/actions/artifacts/<artifact-id>/zip > ctr-turbocharged-linux-armhf.tar.gz
+file ctr-turbocharged-linux-armhf.tar.gz   # gzip compressed data
 ```
 
-Without a run ID, `gh run download` picks a run itself and may land on the
-format-check run, which has no artifacts. If the download arrives as a zip,
-unzip it to get the `.tar.gz`.
+The `linux-armhf-checksums` artifact is a normal zip holding the `.sha256`
+file; `sha256sum` on the tarball should match it.
 
 **B. Container build on the desktop.** Needs Docker or Podman. Takes about
 ten minutes and leaves the package in `dist/`.
@@ -79,7 +82,7 @@ see step 8.
 ## 3. Copy the package and your disc image to the Pi
 
 ```fish
-scp dist/ctr-turbocharged-*-linux-armhf.tar.gz $PI:   # or the file under pi-build/ from Actions
+scp ctr-turbocharged-*linux-armhf.tar.gz $PI:   # from dist/ or the Actions download
 scp /path/to/your/ctr-u.bin $PI:
 ssh $PI
 ```
