@@ -76,8 +76,9 @@ Crash-a-Like is optional and is not redistributed by this project. **ORIGINAL** 
 - **Windows:** run `Crash Team Racing - Turbocharged.exe` from the extracted folder.
 - **Linux archive:** open a terminal in the extracted folder and run `./ctr_native`. If its executable permission was lost during extraction, run `chmod +x ctr_native` first.
 - **Linux AppImage:** launch the executable `.AppImage` file; its setup popup can import the disc image on first launch.
+- **Raspberry Pi 5 / RetroPie:** a 32-bit ARM build and a RetroPie port module are described in [docs/RASPBERRY_PI5.md](docs/RASPBERRY_PI5.md).
 
-Use **Options** to configure controls, graphics, and your preferred frame rate. F11 switches between windowed and borderless fullscreen. The game creates `config.ini` for settings and `memcards/` for saves; keep the installation folder writable and back up your saves before replacing an older installation.
+Use **Options** to configure controls, graphics, and your preferred frame rate. F11 switches between windowed and borderless fullscreen. The game creates `config.ini` for settings and `memcards/` for saves; keep the installation folder writable and back up your saves before replacing an older installation. Starting with `--fullscreen` or `--windowed` overrides the saved window mode for that run only, so a launcher can pass it every time without changing your setting; `--help` lists the command-line options.
 
 PAL voiceovers and custom characters are optional; their setup is described below. Python and xdelta3 are only needed for the optional conversion tools.
 
@@ -307,7 +308,7 @@ Changes relative to Crash Team Racing: High Octane v1.4.1, which this fork is ba
 
 ## Building from source
 
-Requires CMake 3.20 or newer and a **32-bit x86 target**: the game is a PS1 decompilation and still assumes 4-byte pointers. Only Windows and Linux are supported; the version comes from the `VERSION` file.
+Requires CMake 3.20 or newer and a **32-bit target**: the game is a PS1 decompilation and still assumes 4-byte pointers. That means 32-bit x86 on Windows and Linux, or 32-bit ARM (armhf) on Linux for the Raspberry Pi 5 (see [docs/RASPBERRY_PI5.md](docs/RASPBERRY_PI5.md)). The version comes from the `VERSION` file.
 
 SDL and other dependencies are vendored in `externals/`. Use the presets in `CMakePresets.json`:
 
@@ -316,8 +317,10 @@ SDL and other dependencies are vendored in `externals/`. Use the presets in `CMa
 | Linux (gcc-multilib) | `cmake --preset linux-gcc-i686-release` | `cmake --build build-linux-gcc-i686-release` |
 | Windows (MinGW32 / MSYS2) | `cmake --preset windows-mingw-i686-release` | `cmake --build build-mingw-i686-release` |
 | Windows (Visual Studio 2022) | `cmake --preset windows-msvc-x86` | `cmake --build --preset windows-msvc-x86-release` |
+| Linux, 32-bit ARM OS (Raspberry Pi OS 32-bit) | `cmake --preset linux-gcc-armhf-release` | `cmake --build build-linux-gcc-armhf-release` |
+| Linux, cross-compile to armhf (Debian or Pi OS 64-bit with `crossbuild-essential-armhf`) | `cmake --preset linux-gcc-armhf-cross-release` | `cmake --build build-linux-gcc-armhf-cross-release` |
 
-Debug presets exist for Linux and MinGW (`...-debug`) and MSVC (`windows-msvc-x86-debug`). The Linux build needs 32-bit development packages for X11, OpenGL, ALSA/PulseAudio, udev and D-Bus; `build.sh` lists the Debian/Ubuntu names and the CI workflow `.github/workflows/build-native.yml` has the full list. On Windows, install the MSYS2 MinGW32 toolchain described in `build.bat`.
+Debug presets exist for Linux, including the armhf ones, and MinGW (`...-debug`) and MSVC (`windows-msvc-x86-debug`). The Linux build needs 32-bit development packages for X11, OpenGL, ALSA/PulseAudio, udev and D-Bus; `build.sh` lists the Debian/Ubuntu names and the CI workflow `.github/workflows/build-native.yml` has the full list. On Windows, install the MSYS2 MinGW32 toolchain described in `build.bat`.
 
 Shortcuts: `./build.sh` (Linux), `build.bat` (MinGW) and `build-msvc.bat` configure, build and run the tests. The Linux executable is `build/ctr_native`; Windows builds produce `Crash Team Racing - Turbocharged.exe`. Run it from a folder containing `assets/ctr-u.bin`, or let the first-run popup import your disc.
 
@@ -329,7 +332,7 @@ AppImage packaging requires an x86_64 Linux host, `curl`, `readelf` (binutils), 
 
 The script also downloads pinned runtime/libfuse/squashfuse sources and creates an `AppImage-runtime-source.tar.gz` archive with licences and rebuilding instructions. It is included inside the AppImage and uploaded separately by CI; publish it and its checksum alongside the AppImage. Source and binary distributions include [third-party notices](THIRD_PARTY_NOTICES.md) and full licence texts in `licenses/`.
 
-For the tarball alone, use `./package.sh linux`. Linux CI builds and uploads both formats, runtime source, and their checksums, and checks the AppImage's version command without FUSE.
+For the tarball alone, use `./package.sh linux`. Linux CI builds and uploads both formats, runtime source, and their checksums, and checks the AppImage's version command without FUSE. The Raspberry Pi build is a tarball only: `ARCH=armhf BUILD_DIR=build-linux-gcc-armhf-cross-release ./package.sh linux`, which CI's `linux-armhf` job also produces.
 
 ### Tests
 

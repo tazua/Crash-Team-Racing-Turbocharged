@@ -232,6 +232,27 @@ static int NativeArg_IsVersion(const char *arg)
 	return (arg != NULL) && ((strcmp(arg, "--version") == 0) || (strcmp(arg, "-v") == 0));
 }
 
+static int NativeArg_IsHelp(const char *arg)
+{
+	return (arg != NULL) && ((strcmp(arg, "--help") == 0) || (strcmp(arg, "-h") == 0));
+}
+
+static void NativeArg_PrintUsage(const char *program)
+{
+	printf("usage: %s [--fullscreen | --windowed] [--version] [--help]\n"
+	       "\n"
+	       "  --fullscreen   start in borderless fullscreen for this run\n"
+	       "  --windowed     start windowed for this run\n"
+	       "  --version, -v  print the version and exit\n"
+	       "  --help, -h     print this help and exit\n"
+	       "\n"
+	       "--fullscreen and --windowed override the saved borderless setting without\n"
+	       "changing it, so a launcher can pass one on every start. F11 still toggles.\n"
+	       "On Linux, CTR_TURBOCHARGED_DATA_DIR selects the folder that holds assets/,\n"
+	       "config.ini and memcards/.\n",
+	       program);
+}
+
 int gNative60FpsEnabled = 0;
 int gNativeForce30Fps = 0;
 int gNativeDefaultCameraFar = 0;
@@ -430,15 +451,32 @@ int main(int argc, char *argv[])
 			printf("%s %s (%s)\n", CTR_PRODUCT_NAME, CTR_NATIVE_VERSION, CTR_NATIVE_BUILD_ID);
 			return 0;
 		}
+		if (NativeArg_IsHelp(argv[argIndex]))
+		{
+			NativeArg_PrintUsage(argv[0]);
+			return 0;
+		}
+		if (strcmp(argv[argIndex], "--fullscreen") == 0)
+		{
+			gNativeWindowModeOverride = 1;
+		}
+		else if (strcmp(argv[argIndex], "--windowed") == 0)
+		{
+			gNativeWindowModeOverride = 0;
+		}
 	}
 
-#if defined(__linux__) && !defined(__vita__) && !defined(__EMSCRIPTEN__) && (UINTPTR_MAX == 0xFFFFFFFFu)
-	// 32-bit Linux builds only; 64-bit builds keep SDL's default driver order.
-	// 32-bit builds do not get along with GPU drivers under native Wayland, so
-	// prefer X11 (through XWayland on Wayland desktops), keeping Wayland only as
-	// a fallback when X11 is unavailable. A SDL_VIDEODRIVER that asks for Wayland
-	// is overridden unless CTR_TURBOCHARGED_ALLOW_WAYLAND=1 confirms it. Any other
-	// SDL_VIDEODRIVER value (x11, offscreen, dummy...) is respected as given.
+#if defined(__linux__) && defined(__i386__) && !defined(__EMSCRIPTEN__)
+	// 32-bit x86 Linux builds only; 64-bit builds keep SDL's default driver
+	// order, and so do the 32-bit ARM builds: a Raspberry Pi running RetroPie
+	// has no display server at all, and SDL must stay free to fall through to
+	// KMSDRM, which this list would exclude.
+	// 32-bit x86 builds do not get along with GPU drivers under native Wayland,
+	// so prefer X11 (through XWayland on Wayland desktops), keeping Wayland only
+	// as a fallback when X11 is unavailable. A SDL_VIDEODRIVER that asks for
+	// Wayland is overridden unless CTR_TURBOCHARGED_ALLOW_WAYLAND=1 confirms it.
+	// Any other SDL_VIDEODRIVER value (x11, offscreen, dummy...) is respected as
+	// given.
 	{
 		const char *requested = SDL_getenv("SDL_VIDEODRIVER");
 		const char *allowWayland = SDL_getenv("CTR_TURBOCHARGED_ALLOW_WAYLAND");
@@ -483,6 +521,9 @@ int main(int argc, char *argv[])
 
 #ifndef __vita__
 	load_config();
+	// --fullscreen / --windowed apply once the saved setting has been read, so
+	// they win for this run without being written back.
+	NativeOptions_ApplyWindowModeOverride();
 #endif
 
 	if (!NativeAssets_Validate())

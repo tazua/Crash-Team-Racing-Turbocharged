@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Package the current x86 build for release.
+# Package the current build for release.
 #
-# usage: ./package.sh <linux|windows> [version]
+# usage: [ARCH=x86|armhf] ./package.sh <linux|windows> [version]
+#
+# ARCH only labels the package; it defaults to x86. The Raspberry Pi build
+# passes ARCH=armhf (see docs/RASPBERRY_PI5.md).
 #
 # Game assets are never packaged. The package is built from an explicit
 # allowlist and the script fails if anything else ends up in it.
@@ -23,6 +26,14 @@ DEFAULT_VERSION="$(tr -d '[:space:]' < "${VERSION_FILE}")"
 VERSION="${2:-${DEFAULT_VERSION}}"
 BUILD_DIR="${BUILD_DIR:-build}"
 DIST_DIR="${DIST_DIR:-dist}"
+ARCH="${ARCH:-x86}"
+case "${ARCH}" in
+    x86|armhf) ;;
+    *)
+        echo "package.sh: ARCH must be x86 or armhf, got '${ARCH}'" >&2
+        exit 2
+        ;;
+esac
 
 case "${PLATFORM}" in
     linux)
@@ -39,7 +50,7 @@ case "${PLATFORM}" in
         ;;
 esac
 
-PACKAGE_NAME="ctr-turbocharged-${VERSION}-${PLATFORM}-x86"
+PACKAGE_NAME="ctr-turbocharged-${VERSION}-${PLATFORM}-${ARCH}"
 PACKAGE_DIR="${DIST_DIR}/${PACKAGE_NAME}"
 BINARY_PATH="${BUILD_DIR}/${BINARY_NAME}"
 
@@ -74,7 +85,21 @@ for font_file in "${font_files[@]}"; do
     cp "assets/fonts/$font_file" "${PACKAGE_DIR}/assets/fonts/"
 done
 
-if [[ "${PLATFORM}" == "linux" ]]; then
+if [[ "${PLATFORM}" == "linux" && "${ARCH}" == "armhf" ]]; then
+    REQUIREMENTS="Linux (32-bit ARM, Raspberry Pi 5) requirements:
+- Raspberry Pi OS (32-bit), or the 64-bit OS with the armhf runtime libraries
+  installed through multiarch (dpkg --add-architecture armhf)
+- armhf glibc runtime
+- armhf Mesa with the V3D driver (libgl1-mesa-dri:armhf), OpenGL 3.1
+- armhf X11/Wayland libraries for a desktop, or none for KMSDRM from a console
+- armhf ALSA/PulseAudio/PipeWire runtime libraries
+- See docs/RASPBERRY_PI5.md in the source tree for setup and RetroPie notes.
+
+If the game does not launch, run it from a terminal and include:
+- OS and whether it is 32-bit or 64-bit
+- terminal output and the .log file
+- output of: ldd ./ctr_native"
+elif [[ "${PLATFORM}" == "linux" ]]; then
     REQUIREMENTS="Linux requirements:
 - x86_64 Linux capable of running 32-bit/i386 binaries
 - 32-bit glibc runtime
@@ -95,7 +120,7 @@ else
 fi
 
 cat >"${PACKAGE_DIR}/README.txt" <<EOF
-Crash Team Racing: Turbocharged ${PLATFORM} x86 ${VERSION} build
+Crash Team Racing: Turbocharged ${PLATFORM} ${ARCH} ${VERSION} build
 
 Game assets are not included. You must provide your own copy of the game.
 

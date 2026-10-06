@@ -80,6 +80,20 @@ extern int cfg_language;
 extern s32 s_nativeLanguageChosen;
 
 // ---------------------------------------------------------------------------
+// Command-line window mode override
+// ---------------------------------------------------------------------------
+
+// Set by --fullscreen (1) or --windowed (0) in main.c before config.ini is
+// read; -1 when neither was given. Launchers such as RetroPie pass one of them
+// on every start, so the override applies to the run but is never written
+// back: NativeOptions_WriteAll keeps emitting the value config.ini held.
+extern int gNativeWindowModeOverride;
+
+// Applies gNativeWindowModeOverride to gNativeBorderlessEnabled. Call once,
+// after load_config has finished, so the saved value is remembered first.
+void NativeOptions_ApplyWindowModeOverride(void);
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 

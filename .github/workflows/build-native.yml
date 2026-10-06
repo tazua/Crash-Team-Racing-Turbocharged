@@ -1,6 +1,7 @@
 name: Build native PC builds
 
-# Builds the 32-bit Windows and Linux Turbocharged executables.
+# Builds the 32-bit Windows and Linux Turbocharged executables, plus a 32-bit
+# ARM (armhf) Linux build for the Raspberry Pi 5 (see docs/RASPBERRY_PI5.md).
 # Packages contain no game assets: players must supply their own ctr-u.bin.
 
 on:
@@ -147,6 +148,81 @@ jobs:
           name: linux-appimage-runtime-source
           path: ${{ steps.package.outputs.runtime_source }}
           archive: false
+          if-no-files-found: error
+
+  linux-armhf:
+    name: Linux armhf (Raspberry Pi 5)
+    runs-on: ubuntu-latest
+    # Debian keeps every architecture in one archive, so the armhf build
+    # dependencies install through multiarch next to the cross toolchain.
+    # Bookworm is what Raspberry Pi OS is based on, so the binary runs against
+    # the same glibc and Mesa it will meet on the Pi.
+    container: debian:bookworm
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Install cross toolchain and armhf SDL dependencies
+        run: |
+          dpkg --add-architecture armhf
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git ca-certificates file cmake ninja-build pkg-config \
+            crossbuild-essential-armhf qemu-user-static libwayland-bin \
+            libx11-dev:armhf libxext-dev:armhf libxcursor-dev:armhf libxi-dev:armhf \
+            libxrandr-dev:armhf libxfixes-dev:armhf libgl-dev:armhf libegl-dev:armhf \
+            libasound2-dev:armhf libpulse-dev:armhf libpipewire-0.3-dev:armhf \
+            libjack-jackd2-dev:armhf libudev-dev:armhf libdbus-1-dev:armhf \
+            libibus-1.0-dev:armhf libusb-1.0-0-dev:armhf libwayland-dev:armhf \
+            libxkbcommon-dev:armhf libdecor-0-dev:armhf libdrm-dev:armhf libgbm-dev:armhf
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Trust workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=ON
+          -DCTR_NATIVE_RENDERER_TESTS=ON
+          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-linux-armhf.cmake
+          -DCMAKE_CROSSCOMPILING_EMULATOR=qemu-arm-static
+
+      - name: Build
+        run: cmake --build build
+
+      # The display-independent tests run under qemu-user. The gpu-labelled
+      # subset needs a V3D context, which only real hardware can provide.
+      - name: Test (headless, under qemu-arm)
+        run: ctest --test-dir build --output-on-failure -LE gpu
+
+      - name: Package
+        id: package
+        shell: bash
+        env:
+          REF_NAME: ${{ github.head_ref || github.ref_name }}
+        run: |
+          version="${REF_NAME//\//-}-${GITHUB_SHA::7}"
+          ARCH=armhf ./package.sh linux "$version"
+          archive="dist/ctr-turbocharged-${version}-linux-armhf.tar.gz"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "- \`$(cat "$archive.sha256")\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Linux armhf tarball
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-armhf-tarball
+          path: ${{ steps.package.outputs.archive }}
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload Linux armhf checksum
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-armhf-checksums
+          path: ${{ steps.package.outputs.archive }}.sha256
           if-no-files-found: error
 
   windows:

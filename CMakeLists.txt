@@ -19,9 +19,10 @@ set(CTR_PRODUCT_NAME "Crash Team Racing: Turbocharged")
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
     message(FATAL_ERROR
-        "CTR Native currently requires a 32-bit target. "
-        "Select Win32 for MSVC, an i686 MinGW compiler on Windows, or pass -m32 "
-        "in the initial compiler and linker flags on Linux."
+        "CTR Native currently requires a 32-bit target: the game assumes 4-byte pointers. "
+        "Select Win32 for MSVC, an i686 MinGW compiler on Windows, pass -m32 in the "
+        "initial compiler and linker flags on x86 Linux, or use a 32-bit ARM (armhf) "
+        "toolchain such as cmake/toolchain-linux-armhf.cmake (see docs/RASPBERRY_PI5.md)."
     )
 endif()
 
@@ -29,6 +30,30 @@ set(CTR_NATIVE_MSVC_FRONTEND OFF)
 if(CMAKE_C_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_SIMULATE_ID STREQUAL "MSVC")
     set(CTR_NATIVE_MSVC_FRONTEND ON)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
+# Facts about the target come from the compiler rather than from
+# CMAKE_SYSTEM_PROCESSOR: that variable is `uname -m` for native builds, which
+# reads aarch64 on a 32-bit Raspberry Pi OS running on its 64-bit kernel, and
+# whatever a toolchain file chose to say when cross-compiling.
+include(CheckCSourceCompiles)
+check_c_source_compiles("
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(_M_IX86) && !defined(_M_X64)
+#error not x86
+#endif
+int main(void) { return 0; }
+" CTR_NATIVE_TARGET_X86)
+check_c_source_compiles("
+_Static_assert((char)-1 < 0, \"plain char is unsigned\");
+int main(void) { return 0; }
+" CTR_NATIVE_CHAR_IS_SIGNED)
+if(NOT CTR_NATIVE_CHAR_IS_SIGNED AND NOT CTR_NATIVE_MSVC_FRONTEND)
+    # The decompiled game treats plain char as signed, as it is on x86 and on
+    # the PS1's MIPS. ARM ABIs make it unsigned, which silently breaks
+    # comparisons such as `char index > -1` (game/224.c). Pin the x86
+    # behaviour for every target, tests and SDL included, as the Vita makefile
+    # already did with the same flag.
+    add_compile_options(-fsigned-char)
 endif()
 
 if(NOT EMSCRIPTEN)
@@ -169,16 +194,11 @@ else()
         $<$<CONFIG:Release>:-g>
     )
 
-    if(NOT EMSCRIPTEN AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3-6]86|x86|x86_64|AMD64|amd64)$")
+    if(NOT EMSCRIPTEN AND CTR_NATIVE_TARGET_X86)
         # i386 GCC defaults to x87 maths even with -msse; the native renderer is
-        # float-heavy, so keep floats and doubles in SSE registers.
+        # float-heavy, so keep floats and doubles in SSE registers. ARM has no
+        # x87 to steer away from: its hard-float ABI already uses VFP registers.
         target_compile_options(ctr_native PRIVATE -msse2 -mfpmath=sse)
-    endif()
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
-        # The decompiled game treats plain char as signed (x86 and MIPS default).
-        # ARM ABIs default to unsigned char, which breaks comparisons such as
-        # `char index > -1`, so pin the x86 behaviour.
-        target_compile_options(ctr_native PRIVATE -fsigned-char)
     endif()
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
@@ -356,7 +376,9 @@ if(BUILD_TESTING AND NOT EMSCRIPTEN)
     endif()
     add_test(NAME ctr_native_projection COMMAND ctr_native_projection_test)
     add_test(NAME ctr_native_precision COMMAND ctr_native_precision_test)
-    add_test(NAME ctr_native_version COMMAND $<TARGET_FILE:ctr_native> --version)
+    # Named as a target rather than $<TARGET_FILE:...> so ctest prefixes
+    # CMAKE_CROSSCOMPILING_EMULATOR (qemu-arm-static for the armhf CI job).
+    add_test(NAME ctr_native_version COMMAND ctr_native --version)
     set_tests_properties(ctr_native_version PROPERTIES PASS_REGULAR_EXPRESSION "^Crash Team Racing: Turbocharged ")
     if(CTR_NATIVE_RENDERER_TESTS)
         add_executable(ctr_native_depth_renderer_test tests/native_depth_renderer_test.c)

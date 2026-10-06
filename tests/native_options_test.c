@@ -744,6 +744,52 @@ static void test_below_minimum_saves_the_default_not_the_stored_value(void)
 	ResetToDefaults();
 }
 
+// --fullscreen / --windowed: the override wins for the run, but the value the
+// config held is what gets written back, so a launcher that passes the flag on
+// every start never flips the player's saved setting.
+static void test_window_mode_override_is_applied_but_not_saved(void)
+{
+	const struct NativeOption *option = NativeOption_Find("borderless");
+	int written = 0;
+
+	assert(option != NULL);
+
+	// No flag: the setting round-trips as before.
+	ResetToDefaults();
+	gNativeWindowModeOverride = -1;
+	assert(ApplyLine("borderless", 1));
+	NativeOptions_ApplyWindowModeOverride();
+	assert(gNativeBorderlessEnabled == 1);
+	assert(NativeOption_WriteValue(option, &written));
+	assert(written == 1);
+
+	// --fullscreen over a windowed config: runs fullscreen, saves windowed.
+	ResetToDefaults();
+	assert(ApplyLine("borderless", 0));
+	gNativeWindowModeOverride = 1;
+	NativeOptions_ApplyWindowModeOverride();
+	assert(gNativeBorderlessEnabled == 1);
+	assert(NativeOption_WriteValue(option, &written));
+	assert(written == 0);
+
+	// An F11 toggle during such a run is not saved either.
+	gNativeBorderlessEnabled = 0;
+	assert(NativeOption_WriteValue(option, &written));
+	assert(written == 0);
+
+	// --windowed over a fullscreen config: runs windowed, saves fullscreen.
+	ResetToDefaults();
+	assert(ApplyLine("borderless", 1));
+	gNativeWindowModeOverride = 0;
+	NativeOptions_ApplyWindowModeOverride();
+	assert(gNativeBorderlessEnabled == 0);
+	assert(NativeOption_WriteValue(option, &written));
+	assert(written == 1);
+
+	gNativeWindowModeOverride = -1;
+	ResetToDefaults();
+}
+
 int main(void)
 {
 	ResetToDefaults();
@@ -771,6 +817,7 @@ int main(void)
 	test_parse_round_trips_what_write_all_emits();
 	test_registry_default_is_accepted_and_round_trips();
 	test_below_minimum_saves_the_default_not_the_stored_value();
+	test_window_mode_override_is_applied_but_not_saved();
 	printf("native_options: all checks passed (%u settings)\n", g_nativeOptionCount);
 	return 0;
 }

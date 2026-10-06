@@ -52,6 +52,33 @@ static int NativeOption_EncodeFov(const struct NativeOption *option)
 	return gNativeFovDegrees;
 }
 
+// --fullscreen / --windowed. The override replaces gNativeBorderlessEnabled for
+// this run only: the value config.ini held is remembered here and written back
+// unchanged, so a launcher can pass the flag on every start without flipping
+// the player's saved setting. F11 toggles during such a run are not saved
+// either; with an override active the window mode is the launcher's call.
+int gNativeWindowModeOverride = -1;
+static int s_nativeBorderlessSaved;
+
+void NativeOptions_ApplyWindowModeOverride(void)
+{
+	s_nativeBorderlessSaved = (gNativeBorderlessEnabled != 0);
+	if (gNativeWindowModeOverride >= 0)
+	{
+		gNativeBorderlessEnabled = (gNativeWindowModeOverride != 0);
+	}
+}
+
+static int NativeOption_EncodeBorderless(const struct NativeOption *option)
+{
+	(void)option;
+	if (gNativeWindowModeOverride >= 0)
+	{
+		return s_nativeBorderlessSaved;
+	}
+	return (gNativeBorderlessEnabled != 0);
+}
+
 // Legacy 0/1 spelling of frame_rate: 0 selects index 0 (30 FPS), non-zero
 // selects index 1 (60 FPS).
 static int NativeOption_DecodeLegacyFrameRate(int rawValue)
@@ -395,6 +422,7 @@ const struct NativeOption g_nativeOptions[] = {
         .kind = NATIVE_OPTION_BOOL,
         .value = &gNativeBorderlessEnabled,
         .defaultValue = 0,
+        .encode = NativeOption_EncodeBorderless,
         .persistent = 1,
     },
     {

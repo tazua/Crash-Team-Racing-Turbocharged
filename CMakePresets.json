@@ -112,6 +112,74 @@
         "CMAKE_C_FLAGS": "-m32",
         "CMAKE_EXE_LINKER_FLAGS": "-m32"
       }
+    },
+    {
+      "name": "linux-gcc-armhf-debug",
+      "displayName": "Linux GCC armhf Debug (native)",
+      "description": "Native build on a 32-bit ARM Linux userland such as Raspberry Pi OS (32-bit); see docs/RASPBERRY_PI5.md",
+      "inherits": "common",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-linux-gcc-armhf-debug",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc"
+      }
+    },
+    {
+      "name": "linux-gcc-armhf-release",
+      "displayName": "Linux GCC armhf Release (native)",
+      "description": "Native build on a 32-bit ARM Linux userland such as Raspberry Pi OS (32-bit); see docs/RASPBERRY_PI5.md",
+      "inherits": "common",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-linux-gcc-armhf-release",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc"
+      }
+    },
+    {
+      "name": "linux-gcc-armhf-cross-debug",
+      "displayName": "Linux GCC armhf Debug (cross)",
+      "description": "Cross-compile for 32-bit ARM Linux with Debian's arm-linux-gnueabihf toolchain and :armhf multiarch packages",
+      "inherits": "common",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-linux-gcc-armhf-cross-debug",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "toolchainFile": "${sourceDir}/cmake/toolchain-linux-armhf.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "linux-gcc-armhf-cross-release",
+      "displayName": "Linux GCC armhf Release (cross)",
+      "description": "Cross-compile for 32-bit ARM Linux with Debian's arm-linux-gnueabihf toolchain and :armhf multiarch packages",
+      "inherits": "common",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-linux-gcc-armhf-cross-release",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "toolchainFile": "${sourceDir}/cmake/toolchain-linux-armhf.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ],
   "buildPresets": [
@@ -140,6 +208,22 @@
     {
       "name": "linux-gcc-i686-release",
       "configurePreset": "linux-gcc-i686-release"
+    },
+    {
+      "name": "linux-gcc-armhf-debug",
+      "configurePreset": "linux-gcc-armhf-debug"
+    },
+    {
+      "name": "linux-gcc-armhf-release",
+      "configurePreset": "linux-gcc-armhf-release"
+    },
+    {
+      "name": "linux-gcc-armhf-cross-debug",
+      "configurePreset": "linux-gcc-armhf-cross-debug"
+    },
+    {
+      "name": "linux-gcc-armhf-cross-release",
+      "configurePreset": "linux-gcc-armhf-cross-release"
     }
   ],
   "testPresets": [
@@ -183,6 +267,34 @@
     {
       "name": "linux-gcc-i686-release",
       "configurePreset": "linux-gcc-i686-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-gcc-armhf-debug",
+      "configurePreset": "linux-gcc-armhf-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-gcc-armhf-release",
+      "configurePreset": "linux-gcc-armhf-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-gcc-armhf-cross-debug",
+      "configurePreset": "linux-gcc-armhf-cross-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-gcc-armhf-cross-release",
+      "configurePreset": "linux-gcc-armhf-cross-release",
       "output": {
         "outputOnFailure": true
       }
