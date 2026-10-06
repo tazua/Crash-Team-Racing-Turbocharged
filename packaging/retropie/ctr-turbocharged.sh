@@ -35,6 +35,14 @@ function depends_ctr-turbocharged() {
         libwayland-dev libdecor-0-dev libgl1-mesa-dri
     )
     local pkg
+    # The Pi 5's default kernel (kernel_2712.img) uses 16 KB pages. 32-bit
+    # programs and the 32-bit libraries they load are laid out for 4 KB pages
+    # and die in execve under anything larger, so the 4 KB kernel is a hard
+    # requirement; see docs/RASPBERRY_PI5.md.
+    if [[ "$(getconf PAGESIZE)" != "4096" ]]; then
+        md_ret_errors+=("This kernel uses $(getconf PAGESIZE)-byte pages. 32-bit programs such as Turbocharged only run under 4 KB pages: add 'kernel=kernel8.img' to /boot/firmware/config.txt, reboot, then install again.")
+        return 1
+    fi
     if isPlatform "64bit"; then
         if ! dpkg --print-foreign-architectures | grep -qx armhf; then
             dpkg --add-architecture armhf

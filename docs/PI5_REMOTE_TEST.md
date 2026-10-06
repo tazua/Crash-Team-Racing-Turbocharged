@@ -96,9 +96,27 @@ cd ctr-turbocharged-*-linux-armhf
 mv ~/ctr-u.bin assets/ctr-u.bin
 # Skip the first-boot language and preset prompts, which would wait for input.
 printf 'language=2\npreset_seen=1\n' > config.ini
+getconf PAGESIZE
 ./ctr_native --version
 ldd ./ctr_native | grep -i "not found" || echo "all libraries present"
 ```
+
+`getconf PAGESIZE` must print `4096`. The Pi 5 boots `kernel_2712.img` by
+default, which uses 16 KB pages, and no 32-bit program can be loaded under
+it: the 32-bit glibc loader and libraries are laid out for 4 KB pages, so
+`execve` fails and the shell reports a bare "Segmentation fault" with no
+output, even for `--version`. Switch to the 4 KB kernel once:
+
+```bash
+sudo cp /boot/firmware/config.txt /boot/firmware/config.txt.bak
+sudo sed -i '1i kernel=kernel8.img' /boot/firmware/config.txt
+sudo reboot
+```
+
+After the reboot, `uname -r` ends in `-rpi-v8` instead of `-rpi-2712` and
+`getconf PAGESIZE` prints `4096`. If `free -h` then shows no swap, recreate
+it with `sudo dphys-swapfile setup && sudo dphys-swapfile swapon`. To go
+back later, restore the backup.
 
 If `ldd` lists missing libraries on a 64-bit OS, install the armhf runtime:
 
@@ -149,6 +167,7 @@ If it stops at once, read `run1.txt`:
 
 | Message | Meaning |
 | --- | --- |
+| `Segmentation fault` with no other output, even from `--version` | The kernel uses 16 KB pages; see step 3 for switching to `kernel8.img`. |
 | `Failed to initialise SDL window` | No usable display. Check step 4; `SDL_VIDEODRIVER=kmsdrm` in front of the command forces KMSDRM and gives a clearer error. |
 | `OpenGL 3.x is not supported` | The driver offered no desktop GL 3.x context. The `*OpenGL version:` line, if present, says what it offered. |
 | `permission denied` on `/dev/dri` or a DRM master error | Try `sudo -E ./ctr_native ...` once, then `sudo chown -R "$USER": .` afterwards. |

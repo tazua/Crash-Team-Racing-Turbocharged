@@ -55,6 +55,15 @@ if(NOT CTR_NATIVE_CHAR_IS_SIGNED AND NOT CTR_NATIVE_MSVC_FRONTEND)
     # already did with the same flag.
     add_compile_options(-fsigned-char)
 endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CTR_NATIVE_TARGET_X86 AND NOT EMSCRIPTEN)
+    # The Raspberry Pi 5 kernel uses 16 KB pages. The 32-bit ARM linker aligns
+    # loadable segments to 4 KB by default, and a program mapped onto larger
+    # pages with only 4 KB congruence dies in execve with a bare SIGSEGV,
+    # before main runs. 64 KB alignment loads under 4 KB, 16 KB and 64 KB
+    # pages alike, at the cost of a little file padding. The system's own
+    # 32-bit libraries have to be loadable too; see docs/RASPBERRY_PI5.md.
+    add_link_options(-Wl,-z,max-page-size=0x10000)
+endif()
 
 if(NOT EMSCRIPTEN)
     set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE NEVER)

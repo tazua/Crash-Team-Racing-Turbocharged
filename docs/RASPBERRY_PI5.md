@@ -68,6 +68,32 @@ warnings across 56 files, all from the PS1 memory layout described in
 - **RetroPie.** `packaging/retropie/ctr-turbocharged.sh` is a RetroPie-Setup
   port module; `packaging/retropie/README.md` walks through installing it.
 
+## Kernel page size
+
+The Pi 5 boots `kernel_2712.img` by default, a kernel built with 16 KB
+pages. Debian's 32-bit toolchain aligns ELF segments to 4 KB, as do the
+32-bit glibc loader and every armhf library, and Linux cannot map such a
+program onto 16 KB pages: `execve` fails after its point of no return and
+the process dies with SIGSEGV before `main`, so even `./ctr_native --version`
+prints nothing but "Segmentation fault". This was the first thing the first
+Pi 5 test hit.
+
+The 32-bit build therefore needs the 4 KB page kernel, `kernel8.img`, which
+ships on the same image and is the kernel every other Pi uses:
+
+```sh
+sudo sed -i '1i kernel=kernel8.img' /boot/firmware/config.txt   # back the file up first
+sudo reboot
+getconf PAGESIZE   # 4096
+```
+
+Swap created under the other page size has to be recreated
+(`sudo dphys-swapfile setup && sudo dphys-swapfile swapon`). The game binary
+itself is now linked with `-z max-page-size=0x10000`, so its own segments
+load under any page size; the system libraries remain the deciding factor,
+and the RetroPie module refuses to install under a 16 KB kernel with this
+advice.
+
 ## Building
 
 ### Cross-compile on a 64-bit Bookworm host (Pi OS 64-bit or a desktop)
@@ -144,10 +170,10 @@ looked at.
   (`#version 300 es`, `SDL_GL_CONTEXT_PROFILE_ES`) exists but disables Native
   3D and the title logo; a `CTR_NATIVE_GLES` define separate from
   `__EMSCRIPTEN__` would be the clean way to reuse it at runtime.
-- **Mesa versions on the 64-bit OS.** Multiarch requires `libgl1:armhf` and
-  friends at exactly the version of the installed arm64 packages. Both
-  Debian and the Raspberry Pi repository publish armhf and arm64 together, so
-  this should hold; the 32-bit OS avoids the question entirely.
+- **Mesa versions on the 64-bit OS.** Confirmed working: on Raspberry Pi OS
+  Bookworm 64-bit, `libgl1-mesa-dri:armhf` and the rest of the armhf runtime
+  installed from the Raspberry Pi repository at the same Mesa version
+  (24.2.8) as the arm64 packages, with no conflicts.
 - **Unaligned access.** PS1 packet code casts byte buffers to wider types.
   AArch32 traps unaligned `LDM`/`LDRD`; the arm64 kernel can fix these up for
   32-bit processes when built with `CONFIG_COMPAT_ALIGNMENT_FIXUPS` (Linux

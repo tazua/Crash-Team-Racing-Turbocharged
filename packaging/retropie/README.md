@@ -17,6 +17,22 @@ The game needs your own NTSC-U disc dump; the module never downloads game data.
   game needs 4-byte pointers. On a 32-bit OS it builds natively instead.
 - Internet access for the clone and the build dependencies, and about 1 GB of
   free space for the source tree and build.
+- The 4 KB page kernel. The Pi 5 boots `kernel_2712.img` by default, which
+  uses 16 KB pages, and 32-bit programs cannot be loaded under it: they die
+  with a bare "Segmentation fault" before they print anything. Switch once
+  and reboot:
+
+  ```sh
+  sudo cp /boot/firmware/config.txt /boot/firmware/config.txt.bak
+  sudo sed -i '1i kernel=kernel8.img' /boot/firmware/config.txt
+  sudo reboot
+  ```
+
+  `getconf PAGESIZE` should then print `4096`. `kernel8.img` is the same
+  64-bit kernel the Pi 4 uses, so RetroPie's emulators are unaffected. If
+  swap is missing afterwards (`free -h` shows 0), recreate it with
+  `sudo dphys-swapfile setup && sudo dphys-swapfile swapon`. The module
+  refuses to install under a 16 KB kernel and prints this advice.
 
 ## Install
 
