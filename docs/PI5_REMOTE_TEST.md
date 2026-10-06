@@ -196,15 +196,20 @@ Screenshots are BMP; any image viewer opens them. `get_throttled` reports
 `0x0` when the Pi never throttled; anything else means heat or power limits
 affected the run.
 
-## 7. A second run with lighter settings
+## 7. A second run with the Native 3D renderer
 
-Only if the first run stuttered. The game rewrote `config.ini` on exit, so
-edit values in place rather than appending:
+The Native 3D renderer halves the CPU time per frame on the Pi (see the
+measurements in `RASPBERRY_PI5.md`). The game rewrote `config.ini` on exit,
+so edit values in place rather than appending:
 
 ```bash
-sed -i 's/^ps1_resolution=.*/ps1_resolution=1/; s/^anti_aliasing=.*/anti_aliasing=0/' config.ini
-timeout -s INT 360 ./ctr_native --fullscreen --perf-dir debug/perf/run2 --screenshot-interval 20 2>&1 | tee run2.txt
+sed -i 's/^renderer=.*/renderer=1/' config.ini          # add ps1_resolution=1 for more GPU headroom
+timeout -k 15 -s INT 360 ./ctr_native --fullscreen --perf-dir debug/perf/run2 --screenshot-interval 30 2>&1 | tee run2.txt
 ```
+
+`--perf-dir` keeps each run's data apart; the summary is then under
+`debug/perf/run2/`. `frame_rate=1` switches to the 60 FPS mode for a later
+run.
 
 ## 8. The real installation: the RetroPie module
 

@@ -162,14 +162,47 @@ the log live in that folder too. The module is flagged `rpi5` only; a Pi 4
 has the same OpenGL 3.1 driver but a weaker CPU and GPU and has not been
 looked at.
 
+## Measured on a Pi 5
+
+Two six-minute hands-off runs on a Pi 5 (2 GB, 4 KB kernel, Raspberry Pi OS
+Bookworm 64-bit with the armhf runtime, Mesa 24.2.8, KMSDRM at 1280x720,
+TV off). The game played the intro, the Oxide cutscene and two demo races
+each time; `--perf` recorded every frame. Race frames only:
+
+| | Run 1: Classic renderer, HD | Run 2: Native 3D, PS1 resolution |
+| --- | --- | --- |
+| CPU work per frame, average | 22.8 ms | 10.9 ms |
+| 95th percentile | 40.1 ms | 17.9 ms |
+| Frames over the 30 FPS budget | 20 % | 0.1 % |
+| Frames over a 60 FPS budget | 63 % | 8 % |
+| Level geometry on the CPU | 7.0 ms | 1.5 ms |
+| Waiting for the GPU at swap | 6.2 ms | 0.2 ms |
+| Worst frame | 2.96 s, first shader compile | 0.26 s, level load |
+
+Both runs used FXAA and the depth buffer and ran in the 30 FPS mode. The
+Classic renderer rebuilds level geometry on the CPU every frame; Native 3D
+uploads it once, which is where most of the saving comes from. The
+remaining cost is issuing draw calls through the V3D driver, about 5 ms a
+frame, so that is the next target if 60 FPS needs more headroom. Audio never
+underran. The first-run stall is shader compilation; Mesa caches the result
+in `~/.cache/mesa_shader_cache`, so it does not repeat.
+
+Conclusions so far: Native 3D should be the default on the Pi (the RetroPie
+module seeds `renderer=1`), 30 FPS is solid, and 60 FPS is within reach with
+Native 3D; whether HD output at 720p also fits, and how 60 FPS behaves, are
+the next two runs. GPU timer queries are unavailable on V3D (`gpu_frames=0`
+in the summary), so `swap_window_ms` stands in for GPU time.
+
+Also learned on the way: the Pi was on Wi-Fi, and the BCM43455 firmware
+stalled for a minute during testing (`brcmfmac ... status -110` in
+`dmesg`), which dropped SSH sessions. Run long tests inside `tmux`.
+
 ## Still to verify on hardware
 
-- **GL context under KMSDRM.** Mesa's EGL supports desktop GL contexts on
-  GBM, so the 3.3 to 3.1 fallback should succeed, but this has only been
-  reasoned about. If only ES contexts are available, the Emscripten GLES path
-  (`#version 300 es`, `SDL_GL_CONTEXT_PROFILE_ES`) exists but disables Native
-  3D and the title logo; a `CTR_NATIVE_GLES` define separate from
-  `__EMSCRIPTEN__` would be the clean way to reuse it at runtime.
+- **GL context under KMSDRM.** Confirmed: the log reports `V3D 7.1.10.2`
+  with `OpenGL version: 3.1 (Core Profile) Mesa 24.2.8` and GLSL 1.40, and
+  the rendering is correct (verified from screenshots). No GLES path is
+  needed.
 - **Mesa versions on the 64-bit OS.** Confirmed working: on Raspberry Pi OS
   Bookworm 64-bit, `libgl1-mesa-dri:armhf` and the rest of the armhf runtime
   installed from the Raspberry Pi repository at the same Mesa version
@@ -179,13 +212,10 @@ looked at.
   32-bit processes when built with `CONFIG_COMPAT_ALIGNMENT_FIXUPS` (Linux
   6.1+). The Vita build never needed changes, and qemu-user does not trap, so
   the only real test is a Pi. Watch the log for `SIGBUS`.
-- **Performance and defaults.** Defaults are the Classic renderer, FXAA,
-  depth buffer on, 60 FPS, HD resolution. The VideoCore VII is far faster
-  than the Vita GPU this renderer was first tuned on but is not a desktop GPU.
-  Start with the PS1 preset or `ps1_resolution=1`, FXAA rather than MSAA/SSAA,
-  and Classic rather than Native 3D, then raise settings. If the Pi needs
-  different defaults, a first-run detection of `/proc/device-tree/model` is
-  the place to add them.
+- **Performance and defaults.** See "Measured on a Pi 5" above. Still to
+  measure: Native 3D with HD output at 720p, and the 60 FPS mode. If the Pi
+  needs different defaults beyond what the RetroPie module seeds, a
+  first-run detection of `/proc/device-tree/model` is the place to add them.
 - **`-Wstrict-aliasing` warnings** appear three times in the ARM build. They
   exist on x86 too, but ARM's codegen can expose them differently.
 - **Struct layouts in files.** ARM EABI aligns 64-bit fields to 8 bytes where

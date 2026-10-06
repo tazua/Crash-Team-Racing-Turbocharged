@@ -96,6 +96,14 @@ function configure_ctr-turbocharged() {
     mkRomDir "ports/$md_id"
     mkUserDir "$data_dir/assets/fonts"
 
+    # First install only: start from the renderer that measured best on a Pi 5.
+    # Native 3D keeps level geometry on the GPU and halves the CPU time per
+    # frame compared with Classic (docs/RASPBERRY_PI5.md). Everything else
+    # stays at the game's defaults and is changed in-game.
+    if [[ ! -f "$data_dir/config.ini" ]]; then
+        printf 'renderer=1\n' > "$data_dir/config.ini"
+    fi
+
     # Seed only the redistributable assets the game ships with. The disc image
     # is the player's, and user fonts (crash-a-like.ttf) and saves are left
     # alone; the bundled files are refreshed so an update carries fixes along.
