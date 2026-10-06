@@ -44,18 +44,23 @@ Pick one.
 **A. GitHub Actions.** On a fork, Actions are disabled until you open the
 repository's *Actions* tab once and enable them. Then: *Actions* > *Build
 native PC builds* > *Run workflow* > branch
-`claude/affectionate-davinci-v46g7q` > *Run workflow*. After about 20
-minutes, download the `linux-armhf-tarball` artifact from the run page (it
-is a zip around the `.tar.gz`). With the GitHub CLI instead:
+`claude/affectionate-davinci-v46g7q` > *Run workflow*. The armhf job takes
+about two minutes; the whole run, with the Windows and x86 jobs, longer.
+The tarball is uploaded as-is so it keeps its executable bit, which means
+the artifact is named after the file, `ctr-turbocharged-<branch>-<sha>-linux-armhf.tar.gz`,
+not after the upload step. Download it from the run page, or with the GitHub
+CLI, giving the run ID from the run's URL and matching the name by pattern:
 
 ```fish
 gh workflow run build-native.yml -R tazua/Crash-Team-Racing-Turbocharged --ref claude/affectionate-davinci-v46g7q
-gh run list -R tazua/Crash-Team-Racing-Turbocharged -w build-native.yml -L 1
-gh run download -R tazua/Crash-Team-Racing-Turbocharged -n linux-armhf-tarball   # when it has finished
+gh run list -R tazua/Crash-Team-Racing-Turbocharged -w build-native.yml -L 3
+gh run download <run-id> -R tazua/Crash-Team-Racing-Turbocharged -p '*linux-armhf.tar.gz' -D pi-build
+find pi-build -name '*.tar.gz'
 ```
 
-This is also the first run of the new CI job, so a failure there is useful
-information in itself.
+Without a run ID, `gh run download` picks a run itself and may land on the
+format-check run, which has no artifacts. If the download arrives as a zip,
+unzip it to get the `.tar.gz`.
 
 **B. Container build on the desktop.** Needs Docker or Podman. Takes about
 ten minutes and leaves the package in `dist/`.
@@ -74,7 +79,7 @@ see step 8.
 ## 3. Copy the package and your disc image to the Pi
 
 ```fish
-scp dist/ctr-turbocharged-*-linux-armhf.tar.gz $PI:
+scp dist/ctr-turbocharged-*-linux-armhf.tar.gz $PI:   # or the file under pi-build/ from Actions
 scp /path/to/your/ctr-u.bin $PI:
 ssh $PI
 ```
