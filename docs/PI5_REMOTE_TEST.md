@@ -29,7 +29,7 @@ ssh $PI true && echo ok
 One command. Send back the whole output.
 
 ```fish
-ssh -t $PI 'echo "== os =="; head -3 /etc/os-release; echo "kernel: $(uname -r)  machine: $(uname -m)  userland_bits: $(getconf LONG_BIT)  dpkg_arch: $(dpkg --print-architecture)  foreign: $(dpkg --print-foreign-architectures | tr "\n" " ")"; echo "== hardware =="; cat /proc/device-tree/model; echo; free -h | head -2; df -h / | tail -1; echo "== gpu =="; ls -l /dev/dri/; for f in /sys/class/drm/card*-HDMI-A-*/status; do echo "$f: $(cat "$f")"; done; dpkg -l | grep -E "libgl1-mesa-dri|libegl-mesa0|libgbm1|libdrm2 " | awk "{print \$2, \$3}"; echo "== retropie =="; ls -d ~/RetroPie-Setup /opt/retropie 2>&1; pgrep -a emulationstation || echo "emulationstation not running"; echo "== user =="; id; echo "== audio =="; aplay -l 2>&1 | grep "^card" || echo "no alsa cards"; echo "== input =="; ls /dev/input/by-id/ 2>/dev/null || echo "no input devices"; echo "== kernel alignment fixups =="; sudo modprobe configs 2>/dev/null; zcat /proc/config.gz 2>/dev/null | grep -i COMPAT_ALIGNMENT || echo "kernel config not readable"; echo "== apt sources =="; grep -rh "^deb " /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; echo "== temperature =="; vcgencmd measure_temp; vcgencmd get_throttled'
+ssh -t $PI 'echo "== os =="; head -3 /etc/os-release; echo "kernel: $(uname -r)  machine: $(uname -m)  userland_bits: $(getconf LONG_BIT)  dpkg_arch: $(dpkg --print-architecture)  foreign: $(dpkg --print-foreign-architectures | tr "\n" " ")"; echo "== hardware =="; cat /proc/device-tree/model; echo; free -h | head -2; df -h / | tail -1; echo "== gpu =="; ls -l /dev/dri/; for f in /sys/class/drm/card*-HDMI-A-*/status; do echo "$f: $(cat "$f")"; done; dpkg -l | grep -E "libgl1-mesa-dri|libegl-mesa0|libgbm1|libdrm2 " | awk "{print \$2, \$3}"; echo "== retropie =="; ls -d ~/RetroPie-Setup /opt/retropie 2>&1; pgrep -af emulationstation || echo "emulationstation not running"; echo "== user =="; id; echo "== audio =="; aplay -l 2>&1 | grep "^card" || echo "no alsa cards"; echo "== input =="; ls /dev/input/by-id/ 2>/dev/null || echo "no input devices"; echo "== kernel alignment fixups =="; sudo modprobe configs 2>/dev/null; zcat /proc/config.gz 2>/dev/null | grep -i COMPAT_ALIGNMENT || echo "kernel config not readable"; echo "== apt sources =="; grep -rh "^deb " /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; echo "== temperature =="; vcgencmd measure_temp; vcgencmd get_throttled'
 ```
 
 What matters in it: `userland_bits` (32 means a native build, 64 means the
@@ -111,11 +111,13 @@ sudo apt install libgl1-mesa-dri:armhf libgl1:armhf libegl1:armhf libgbm1:armhf 
 ## 4. Free the GPU and check the display
 
 EmulationStation owns the display while it runs, so stop it first. It comes
-back after a reboot (step 9).
+back after a reboot (step 9). The `-f` matters: `pkill` and `pgrep` match a
+process name truncated to 15 characters, and "emulationstation" has 16, so
+without it they never find the process.
 
 ```bash
 cat /sys/class/drm/card*-HDMI-A-*/status
-pkill emulationstation; sleep 2; pgrep -a emulationstation || echo "EmulationStation stopped"
+pkill -f emulationstation; sleep 2; pgrep -af emulationstation || echo "EmulationStation stopped"
 ```
 
 If every HDMI connector reports `disconnected` (TV off and not holding the
